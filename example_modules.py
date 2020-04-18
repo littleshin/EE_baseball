@@ -146,8 +146,8 @@ class MovingBallDetector(object):
         
 
 def run_param_for_bgs(pause_mode):
-    path_1 = ('./material/LHB_240FPS/Tang_toss_0101.avi')
-    path_2 = ('./material/LHB_240FPS/Lin_toss_1227 (2).avi')
+    path_1 = ('./videos/Tang_toss_0101.avi')
+    path_2 = ('./videos/Lin_toss_1227 (2).avi')
     clip_buf_1 = read_clip_mono(path_1)
     clip_buf_2 = read_clip_mono(path_2)
     frame_total_1= len(clip_buf_1)
