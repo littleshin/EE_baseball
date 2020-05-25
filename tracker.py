@@ -82,15 +82,9 @@ class ball_tracker(object):
             success, boxes = tracker.update(self.clip[i-1])
             # box return (left top x, left top y, w, h)
             p1 = [int(boxes[0]), int(boxes[1])]
-
             p2 = [int(boxes[0] + boxes[2]), int(boxes[1] + boxes[3])]
             if pre_box != None and self.calculate_diff(pre_box, p1, p2) > 7:
-                roi[:,i-1] = 1
-                '''
-                p1 = (p1[0], p1[1])
-                p2 = (p2[0], p2[1])
-                cv2.rectangle(self.clip[i], p1, p2, colors[0], 2, 1)
-                '''
+                roi[:,i-1] = 1 
             pre_box = (p1, p2)
             roi_box.append([p1, p2])    
             #cv2.rectangle(self.clip[i], p1, p2, colors[0], 2, 1)
@@ -133,10 +127,11 @@ class ball_tracker(object):
         center = (p1 + p2) / 2
         move = center[i+1, :] - center[i, :]
         next_move = center[i+2, :] - center[i+1, :]
-        confident = cosine_similarity([move], [next_move])
+        confident = cosine_similarity([move], [next_move]) # its value is between -1 and 1 
         return confident
 
     def check_continuous(self, roi_box, roi, check_type):
+        # Remove the roi with low continuous (not ball)
         if check_type == 'first':
             roi_indices = np.argwhere(roi == 1)
             roi_indices = roi_indices[:,1]
@@ -145,7 +140,7 @@ class ball_tracker(object):
                     confident = self.continuous_cofident(roi_box, i)
                     if confident < 0.75:
                         roi[:,i] = 0
-                        
+        # Add the roi with high continuous (ball)                
         elif check_type == 'last':
             noroi_indices = np.argwhere(roi == 0)
             noroi_indices = noroi_indices[:,1]
@@ -162,11 +157,12 @@ class ball_tracker(object):
         first_roi, first_box = self.first_half_video(ROI_frame, bbox, colors, select_frame)
         first_roi = self.check_continuous(first_box, first_roi, 'first')
         last_roi, last_box = self.last_half_viideo(ROI_frame, bbox, select_frame)
-        last_roi = self.check_continuous(last_box, last_roi, 'last')       
+        last_roi = self.check_continuous(last_box, last_roi, 'last')     
         for i in range(len(self.clip)):
             frame = self.clip[i]
             if i < select_frame:
                 (p1, p2) = first_box[i]
+                # if the roi == 1, the roi will be show on the video
                 if first_roi[:, i] == 1:
                     p1 = (p1[0], p1[1])
                     p2 = (p2[0], p2[1])
@@ -174,6 +170,7 @@ class ball_tracker(object):
             else:
                 p1, p2 = last_box.pop(0)
                 #cv2.rectangle(frame, p1, p2, colors[0], 2, 1)
+                # if the roi == 1, the roi will be show on the video
                 if last_roi[:, i - select_frame] == 1:
                     cv2.rectangle(frame, p1, p2, colors[0], 2, 1)
             cv2.imshow('Tracker', frame)
