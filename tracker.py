@@ -45,20 +45,23 @@ class ball_tracker(object):
             tracker = cv2.TrackerCSRT_create()     
         return tracker
     
-    def draw_ROI(self, frame):
-        bboxes = []
-        colors = []
+    def set_roi_frame(self, roi_frame, select_frame):
+        self.ROI_frame = roi_frame
+        self.select_frame = select_frame
+        
+    def draw_ROI(self):
+        self.bboxes = []
+        self.colors = []
         while True:
-            bbox = cv2.selectROI('ROI', frame, fromCenter=False, showCrosshair=True)
-            bboxes.append(bbox)
-            colors.append((0, 0, 255)) # ROI_color：red
+            bbox = cv2.selectROI('ROI', self.ROI_frame, fromCenter=False, showCrosshair=True)
+            self.bboxes.append(bbox)
+            self.colors.append((0, 0, 255)) # ROI_color：red
             print("Press q to quit selecting boxes and start tracking")
             print("Press any other key to select next object")
             k = cv2.waitKey(0) & 0xFF
             if (k == 113):  # q is pressed
                 cv2.destroyWindow('ROI')
                 break
-        return bboxes, colors
 
     def calculate_diff(self, pre_box, p1, p2):
         p1 = np.array(p1, dtype=float)
@@ -70,11 +73,11 @@ class ball_tracker(object):
         diff = np.sum(np.square(pre_center - center))
         return diff
         
-    def first_half_video(self, ROI_frame, bbox, colors, select_frame):
+    def get_first_half_video_roi_and_box(self):
         tracker = self.tracker_init()
-        tracker.init(ROI_frame, bbox[0])
-        clip = self.clip[select_frame:]
-        i = select_frame
+        tracker.init(self.ROI_frame, self.bboxes[0])
+        clip = self.clip[self.select_frame:]
+        i = self.select_frame
         roi = np.zeros((1,i), dtype=np.int8)
         roi_box = []
         pre_box = None
@@ -97,10 +100,10 @@ class ball_tracker(object):
         roi[:,indices[0]:] = 1
         return roi, roi_box
 
-    def last_half_viideo(self, ROI_frame, bbox, select_frame):
+    def get_last_half_video_roi_and_box(self):
         tracker = self.tracker_init()
-        tracker.init(ROI_frame, bbox[0])
-        clip = self.clip[select_frame:]
+        tracker.init(self.ROI_frame, self.bboxes[0])
+        clip = self.clip[self.select_frame:]
         roi = np.zeros((1,len(clip)), dtype=np.int8)
         roi_box = []
         pre_box = None
@@ -119,7 +122,7 @@ class ball_tracker(object):
             #cv2.waitKey(30)       
         return roi, roi_box
 
-    def continuous_cofident(self, roi_box, index):
+    def continuous_confident(self, roi_box, index):
         i = index
         points = np.array(roi_box[i:i+3], dtype=int) # shape:(3, 2, 2)
         p1 = points[:, 0, :] # shape:(3, 2)
@@ -131,14 +134,15 @@ class ball_tracker(object):
         return confident
 
     def check_continuous(self, roi_box, roi, check_type):
+        confident_threshold = 0.75
         # Remove the roi with low continuous (not ball)
         if check_type == 'first':
             roi_indices = np.argwhere(roi == 1)
             roi_indices = roi_indices[:,1]
             for i in roi_indices:
                 if i + 2 < len(roi):
-                    confident = self.continuous_cofident(roi_box, i)
-                    if confident < 0.75:
+                    confident = self.continuous_confident(roi_box, i)
+                    if confident < confident_threshold:
                         roi[:,i] = 0
         # Add the roi with high continuous (ball)                
         elif check_type == 'last':
@@ -146,33 +150,33 @@ class ball_tracker(object):
             noroi_indices = noroi_indices[:,1]
             for i in noroi_indices:
                 if i + 2 < len(roi):
-                    confident = self.continuous_cofident(roi_box, i)
-                    if confident > 0.75:
+                    confident = self.continuous_confident(roi_box, i)
+                    if confident > confident_threshold:
                         roi[:,i] = 1
         return roi
        
-    def show_process_video(self, ROI_frame, bbox, colors, select_frame):
+    def show_process_video(self):
         tracker = self.tracker_init()
-        tracker.init(ROI_frame, bbox[0])
-        first_roi, first_box = self.first_half_video(ROI_frame, bbox, colors, select_frame)
+        tracker.init(self.ROI_frame, self.bboxes[0])
+        first_roi, first_box = self.get_first_half_video_roi_and_box()
         first_roi = self.check_continuous(first_box, first_roi, 'first')
-        last_roi, last_box = self.last_half_viideo(ROI_frame, bbox, select_frame)
+        last_roi, last_box = self.get_last_half_video_roi_and_box()
         last_roi = self.check_continuous(last_box, last_roi, 'last')     
         for i in range(len(self.clip)):
             frame = self.clip[i]
-            if i < select_frame:
+            if i < self.select_frame:
                 (p1, p2) = first_box[i]
                 # if the roi == 1, the roi will be show on the video
                 if first_roi[:, i] == 1:
                     p1 = (p1[0], p1[1])
                     p2 = (p2[0], p2[1])
-                    cv2.rectangle(frame, p1, p2, colors[0], 2, 1)
+                    cv2.rectangle(frame, p1, p2, self.colors[0], 2, 1)
             else:
                 p1, p2 = last_box.pop(0)
-                #cv2.rectangle(frame, p1, p2, colors[0], 2, 1)
+                #cv2.rectangle(frame, p1, p2, self.colors[0], 2, 1)
                 # if the roi == 1, the roi will be show on the video
-                if last_roi[:, i - select_frame] == 1:
-                    cv2.rectangle(frame, p1, p2, colors[0], 2, 1)
+                if last_roi[:, i - self.select_frame] == 1:
+                    cv2.rectangle(frame, p1, p2, self.colors[0], 2, 1)
             cv2.imshow('Tracker', frame)
             cv2.waitKey(20)
         
@@ -188,7 +192,7 @@ class ball_tracker(object):
 
 if __name__ == '__main__':
     #path = ('./material/LHB_240FPS/Lin_toss_1227 (2).avi')
-    path = ('./color/cam_7_965.avi')
+    path = ('D:/K-zone/saved_clip/彩色左打視角/cam_7_965.avi')
     clip_buf, size = read_clip_rgb(path)
     select_frame = 595
     ROI_frame = clip_buf[select_frame]
@@ -199,6 +203,7 @@ if __name__ == '__main__':
     # Tracker type: MedianFlow, MOOSE, CSRT      
     trackerType = "CSRT" 
     ball_tracker = ball_tracker(clip_buf, trackerType, size)
-    bboxes, colors = ball_tracker.draw_ROI(ROI_frame)
-    ball_tracker.show_process_video(ROI_frame, bboxes, colors, select_frame)
+    ball_tracker.set_roi_frame(ROI_frame, select_frame)
+    ball_tracker.draw_ROI()
+    ball_tracker.show_process_video()
     ball_tracker.save_video()
