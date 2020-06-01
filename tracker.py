@@ -34,7 +34,7 @@ class ball_tracker(object):
         self.clip = clip
         self.size = video_size
         self.trackerType = trackerType
-        self.save_video_name = 'output.avi'
+        self.save_video_name = 'output_3.avi'
 
     def tracker_init(self):
         if self.trackerType == 'MedianFlow':
@@ -90,7 +90,6 @@ class ball_tracker(object):
             if pre_box != None and finish == False:
                 if self.calculate_diff(pre_box, p1, p2) > 5:
                     if self.calculate_diff(pre_box, p1, p2) > 20:
-                        #roi[:, :i-1] = 0
                         roi[:, i-1:] = 1
                         finish = True
                     else:
@@ -126,58 +125,7 @@ class ball_tracker(object):
             #cv2.waitKey(30)       
         return roi, roi_box
 
-    def continuous_confident(self, roi_box, index, cf_num):
-        i = index
-        cf = cf_num  # check frame
-        points = np.array(roi_box[i:i+cf], dtype=int) # shape:(5, 2, 2)
-        p1 = points[:, 0, :] # shape:(5, 2)
-        p2 = points[:, 1, :]
-        center = (p1 + p2) / 2
-        score = []
-        for n in range(cf - 2):
-            move = center[n+1, :] - center[n, :]
-            next_move = center[n+2, :] - center[n+1, :]
-            confident = cosine_similarity([move], [next_move])
-            score.append(confident) 
-        #move = center[i+1, :] - center[i, :]
-        #next_move = center[i+2, :] - center[i+1, :]
-        #confident = cosine_similarity([move], [next_move]) # its value is between -1 and 1 
-        return sum(score) / len(score)
-
-    def check_continuous(self, roi_box, roi, check_type):
-        confident_threshold = 0.6
-        cf_num = 5
-        # Remove the roi with low continuous (not ball)
-        if check_type == 'first':
-            roi_indices = np.argwhere(roi == 1)
-            roi_indices = roi_indices[:,1]
-            for i in roi_indices:
-                if i + cf_num - 1 < roi.shape[1]:
-                    confident = self.continuous_confident(roi_box, i, cf_num)
-                    print('Frame : ' + str(i) + ' confident : ' + str(confident))
-                    if confident < confident_threshold:
-                        roi[:,i] = 0
-                        
-        # Add the roi with high continuous (ball)
-        elif check_type == 'last':
-            roi_indices = np.argwhere(roi == 1)
-            roi_indices = roi_indices[:,1]
-            for i in roi_indices:
-                if i + cf_num - 1 < len(roi):
-                    confident = self.continuous_confident(roi_box, i, cf_num)
-                    if confident < confident_threshold:
-                        roi[:,i] = 0
-        '''                
-        elif check_type == 'last':
-            noroi_indices = np.argwhere(roi == 0)
-            noroi_indices = noroi_indices[:,1]
-            for i in noroi_indices:
-                if i + 2 < len(roi):
-                    confident = self.continuous_confident(roi_box, i)
-                    if confident > confident_threshold:
-                        roi[:,i] = 1
-        '''
-    def check_success(self, last_roi, last_box):
+    def check_success_last(self, last_roi, last_box):
         pre_box = None
         for i in range(10, len(last_box)):
             p1, p2, success = last_box[i]
@@ -201,9 +149,8 @@ class ball_tracker(object):
         tracker.init(self.ROI_frame, self.bboxes[0])
         first_roi, first_box = self.get_first_half_video_roi_and_box()
         first_type = 'first'
-        #self.check_continuous(first_box, first_roi, first_type)
         last_roi, last_box = self.get_last_half_video_roi_and_box()
-        self.check_success(last_roi, last_box)
+        self.check_success_last(last_roi, last_box)
         count_fail = 0       
         for i in range(len(self.clip)):
             frame = self.clip[i]
@@ -240,16 +187,14 @@ class ball_tracker(object):
 
 
 if __name__ == '__main__':
-    #path = ('./material/LHB_240FPS/Lin_toss_1227 (2).avi')
-    path = ('./color/cam_7_981.avi')
+    path = ('./color/cam_7_970.avi')
     clip_buf, size = read_clip_rgb(path)
-    select_frame = 645
-    ROI_frame = clip_buf[select_frame]
-    # 210 Lin_toss_1227 (2).avi
-    # 22  cam_1_13.avi
-    # 124 cam_1_15.avi
+    select_frame = 595
+
     # 595 cam_7_987.avi, cam_7_965.avi, cam_7_970.avi
     # 645 cam_7_981.avi
+    ROI_frame = clip_buf[select_frame]
+
     # Tracker type: MedianFlow, MOOSE, CSRT 
     trackerType = "CSRT" 
     ball_tracker = ball_tracker(clip_buf, trackerType, size)
