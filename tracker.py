@@ -4,6 +4,13 @@ import queue
 import csv
 from sklearn.metrics.pairwise import cosine_similarity
 
+import logging
+logging.basicConfig(level=logging.DEBUG,
+            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+            datefmt='%m-%d %H:%M:%S')
+            # filename="capture.log")
+logger = logging.getLogger(__name__)
+
 def read_clip_rgb(path):
     cap = cv2.VideoCapture(path)
     clip_buf = []
@@ -56,8 +63,8 @@ class ball_tracker(object):
             bbox = cv2.selectROI('ROI', self.ROI_frame, fromCenter=False, showCrosshair=True)
             self.bboxes.append(bbox)
             self.colors.append((0, 0, 255)) # ROI_color：red
-            print("Press q to quit selecting boxes and start tracking")
-            print("Press any other key to select next object")
+            logger.warning("Press q to quit selecting boxes and start tracking")
+            logger.warning("Press any other key to select next object")
             k = cv2.waitKey(0) & 0xFF
             if (k == 113):  # q is pressed
                 cv2.destroyWindow('ROI')
@@ -156,10 +163,10 @@ class ball_tracker(object):
             frame = self.clip[i]
             if i < self.select_frame:
                 (p1, p2) = first_box[i]
-                #print('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
+                logger.info('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
                 # if the roi == 1, the roi will be show on the video
                 if first_roi[:, i] == 1:
-                    #print('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
+                    logger.info('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
                     p1 = (p1[0], p1[1])
                     p2 = (p2[0], p2[1])
                     cv2.rectangle(frame, p1, p2, self.colors[0], 2, 1)
@@ -167,10 +174,10 @@ class ball_tracker(object):
                 p1, p2, success = last_box.pop(0)
                 if success == False:
                     count_fail += 1
-                print('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
+                logger.debug('Frame :%s center :(%s, %s)' % (str(i), str((p1[0]+p2[0])/2), str((p1[1]+p2[1])/2)))
                 # if the roi == 1, the roi will be show on the video
                 if last_roi[:, i - self.select_frame] == 1:
-                    #print('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
+                    logger.info('Frame :' + str(i) + ' center :(' + str((p1[0]+p2[0])/2) + ', ' + str((p1[1]+p2[1])/2) + ')')
                     if count_fail < 6:
                         cv2.rectangle(frame, p1, p2, self.colors[0], 2, 1)
             cv2.imshow('Tracker', frame)
@@ -187,7 +194,8 @@ class ball_tracker(object):
 
 
 if __name__ == '__main__':
-    path = ('./color/cam_7_970.avi')
+    # path = ('./color/cam_7_970.avi')
+    path = ('D:/K-zone/saved_clip/彩色左打視角/cam_7_965.avi')
     clip_buf, size = read_clip_rgb(path)
     select_frame = 595
 
@@ -200,6 +208,7 @@ if __name__ == '__main__':
     ball_tracker = ball_tracker(clip_buf, trackerType, size)
     ball_tracker.set_roi_frame(ROI_frame, select_frame)
     ball_tracker.draw_ROI()
+    logger.debug("Say or react something to inform users program is not locked.")
     ball_tracker.show_process_video()
     ball_tracker.save_video()
     
